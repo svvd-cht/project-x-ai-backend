@@ -85,14 +85,8 @@ async function sendMessage() {
 				messages: chatHistory,
 			}),
 		});
-
-		// Handle errors
-		if (!response.ok) {
-			throw new Error("Failed to get response");
-		}
-		if (!response.body) {
-			throw new Error("Response body is null");
-		}
+		
+	     // Add completed response to chat history
 
 		// Process streaming response
 		const reader = response.body.getReader();
