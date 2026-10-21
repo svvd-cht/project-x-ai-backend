@@ -35,23 +35,50 @@ async function handleChatRequest(
   env: Env,
 ): Promise<Response> {
   try {
-    const body = (await request.json()) as {
-      command?: string;
-      messages?: ChatMessage[];
-    };
+    const contentType = request.headers.get("Content-Type") || "";
+    let command = "";
+    let history = "";
+    let suppliedMessages: ChatMessage[] | undefined;
+
+    if (contentType.includes("application/json")) {
+      const body = (await request.json()) as {
+        command?: string;
+        messages?: ChatMessage[];
+      };
+
+      command = typeof body.command === "string"
+        ? body.command.trim()
+        : "";
+
+      suppliedMessages = body.messages;
+    } else {
+      const form = new URLSearchParams(await request.text());
+      command = (form.get("command") || "").trim();
+      history = form.get("history") || "";
+    }
 
     let messages: ChatMessage[];
 
-    if (typeof body.command === "string" && body.command.trim()) {
+    if (command) {
       messages = [
         { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: body.command.trim() },
       ];
+
+      if (history.trim()) {
+        messages.push({
+          role: "system",
+          content:
+            "Conversation history from this session. Use it to answer follow-up questions accurately:\n" +
+            history.slice(-12000),
+        });
+      }
+
+      messages.push({ role: "user", content: command });
     } else if (
-      Array.isArray(body.messages) &&
-      body.messages.length > 0
+      Array.isArray(suppliedMessages) &&
+      suppliedMessages.length > 0
     ) {
-      messages = body.messages;
+      messages = [...suppliedMessages];
 
       if (!messages.some((message) => message.role === "system")) {
         messages.unshift({
